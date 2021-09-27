@@ -22,6 +22,7 @@ pub struct Ini {
     delimiters: Vec<char>,
     case_sensitive: bool,
     line_endings: IniLineEndings,
+    sort_on_write: bool,
 }
 
 ///The `IniDefault` struct serves as a template to create other `Ini` objects from. It can be used to store and load
@@ -86,6 +87,16 @@ pub struct IniDefault {
     ///assert_eq!(default.line_endings, IniLineEndings::Lf);
     ///```
     pub line_endings: IniLineEndings,
+    ///Denotes that sections and keys must be sorted when writing the file.
+    ///## Example
+    ///```rust
+    ///use configparser::ini::Ini;
+    ///
+    ///let mut config = Ini::new();
+    ///let default = config.defaults();
+    ///assert_eq!(default.sort_on_write, false);
+    ///```
+    pub sort_on_write: bool,
 }
 
 ///The `IniLineEndings` enum configures which line endings to use when writing the file.
@@ -127,6 +138,7 @@ impl Ini {
             delimiters: vec!['=', ':'],
             case_sensitive: false,
             line_endings: IniLineEndings::Lf,
+            sort_on_write: false,
         }
     }
 
@@ -147,6 +159,7 @@ impl Ini {
             delimiters: vec!['=', ':'],
             case_sensitive: true,
             line_endings: IniLineEndings::Lf,
+            sort_on_write: false,
         }
     }
 
@@ -163,6 +176,7 @@ impl Ini {
     ///    delimiters: vec!['='],
     ///    case_sensitive: true,
     ///    line_endings: IniLineEndings::Lf,
+    ///    sort_on_write: false,
     ///};
     ///let mut config = Ini::new_from_defaults(default.clone());
     ///// Now, load as usual with new defaults:
@@ -178,6 +192,7 @@ impl Ini {
             delimiters: defaults.delimiters,
             case_sensitive: defaults.case_sensitive,
             line_endings: defaults.line_endings,
+            sort_on_write: defaults.sort_on_write,
         }
     }
 
@@ -197,6 +212,7 @@ impl Ini {
             delimiters: self.delimiters.to_owned(),
             case_sensitive: self.case_sensitive,
             line_endings: self.line_endings.clone(),
+            sort_on_write: self.sort_on_write,
         }
     }
 
@@ -215,6 +231,7 @@ impl Ini {
     ///    delimiters: vec!['=', ':'],
     ///    case_sensitive: true,
     ///    line_endings: IniLineEndings::Lf,
+    ///    sort_on_write: false,
     ///}; // This is equivalent to ini_cs() defaults
     ///config.load_defaults(default.clone());
     ///assert_eq!(config.defaults(), default);
@@ -226,6 +243,7 @@ impl Ini {
         self.delimiters = defaults.delimiters;
         self.case_sensitive = defaults.case_sensitive;
         self.line_endings = defaults.line_endings;
+        self.sort_on_write = defaults.sort_on_write;
     }
 
     ///Sets the default section header to the defined string (the default is `default`).
@@ -381,15 +399,28 @@ impl Ini {
             IniLineEndings::Crlf => "\r\n",
         };
 
+        let push_key_value = |out: &mut String, key: &str, val: &Option<String>| {
+            out.push_str(key);
+            if let Some(value) = val {
+                out.push('=');
+                out.push_str(&value);
+            }
+            out.push_str(&line_ending);
+        };
+
         // push key/value pairs in outmap to out string.
         let unparse_key_values = |out: &mut String, outmap: &HashMap<String, Option<String>>| {
-            for (key, val) in outmap.iter() {
-                out.push_str(&key);
-                if let Some(value) = val {
-                    out.push('=');
-                    out.push_str(&value);
+            if self.sort_on_write {
+                let mut map: Vec<_> = outmap.iter().collect();
+                map.sort_by(|(k, _), (k2, _)| k.cmp(k2));
+
+                for (key, val) in map.iter() {
+                    push_key_value(out, key, val);
                 }
-                out.push_str(&line_ending);
+            } else {
+                for (key, val) in outmap.iter() {
+                    push_key_value(out, key, val);
+                }
             }
         };
 
@@ -399,7 +430,13 @@ impl Ini {
             unparse_key_values(&mut out, defaultmap);
             cloned.remove(&self.default_section);
         }
-        for (section, secmap) in cloned.iter() {
+
+        let mut sections: Vec<_> = cloned.iter().collect();
+        if self.sort_on_write {
+            sections.sort_by(|(k, _), (k2, _)| k.cmp(k2));
+        }
+
+        for (section, secmap) in sections {
             out.push_str(&format!("[{}]", section));
             out.push_str(line_ending);
             unparse_key_values(&mut out, secmap);

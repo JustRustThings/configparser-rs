@@ -249,3 +249,58 @@ fn line_endings() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+#[test]
+fn sort_on_write() -> Result<(), Box<dyn Error>> {
+    let mut config = Ini::new_cs();
+    let mut default = config.defaults();
+    default.sort_on_write = true;
+    config.load_defaults(default.clone());
+    config.load("tests/test.ini")?;
+
+    assert_eq!(
+        config.writes(),
+        "defaultvalues=defaultvalues
+[spacing]
+indented=indented
+not indented=not indented
+[topsecret]
+Empty string=
+KFC=the secret herb is orega-
+None string
+Password=[in-brackets]
+colon=value after colon
+[values]
+Bool=True
+Boolcoerce=0
+Float=3.1415
+Int=-31415
+Uint=31415
+");
+
+    let mut config = Ini::new();
+    default.case_sensitive = false;
+    config.load_defaults(default);
+    config.load("tests/test.ini")?;
+    assert_eq!(
+        config.writes(),
+        "defaultvalues=defaultvalues
+[spacing]
+indented=indented
+not indented=not indented
+[topsecret]
+colon=value after colon
+empty string=
+kfc=the secret herb is orega-
+none string
+password=[in-brackets]
+[values]
+bool=True
+boolcoerce=0
+float=3.1415
+int=-31415
+uint=31415
+");
+
+    Ok(())
+}
