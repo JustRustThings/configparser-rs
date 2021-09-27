@@ -2,5 +2,6 @@
 .DS_Store
 Cargo.lock
 output.ini
+output_line_endings.ini
 output2.ini
 test2.ini

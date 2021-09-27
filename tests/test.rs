@@ -1,5 +1,6 @@
-use configparser::ini::Ini;
+use configparser::ini::{Ini, IniLineEndings};
 use std::error::Error;
+use std::fs;
 
 #[test]
 fn non_cs() -> Result<(), Box<dyn Error>> {
@@ -206,5 +207,45 @@ fn cs() -> Result<(), Box<dyn Error>> {
     mut_map.clear();
     config2.clear();
     assert_eq!(config.get_map_ref(), config2.get_map_ref());
+    Ok(())
+}
+
+#[test]
+fn line_endings() -> Result<(), Box<dyn Error>> {
+    let filename = "output_line_endings.ini";
+
+    // Test Lf line endings
+    let mut config = Ini::new();
+    config.set("default", "a", Some("b".to_owned()));
+    config.set("foo", "bar", Some("baz".to_owned()));
+    config.write(filename)?;
+
+    let mut config = Ini::new();
+    config.load(filename)?;
+    assert_eq!(config.get("default", "a").unwrap(), "b");
+    assert_eq!(config.get("foo", "bar").unwrap(), "baz");
+    assert_eq!(
+        fs::read_to_string(filename)?,
+        "a=b\n[foo]\nbar=baz\n"
+    );
+
+    // Test Crlf line endings
+    let mut config = Ini::new();
+    let mut default = config.defaults();
+    default.line_endings = IniLineEndings::Crlf;
+    config.load_defaults(default);
+    config.load(filename)?;
+    config.write(filename)?;
+
+    let mut config = Ini::new();
+    config.load(filename)?;
+    assert_eq!(config.get("default", "a").unwrap(), "b");
+    assert_eq!(config.get("foo", "bar").unwrap(), "baz");
+    assert_eq!(
+        fs::read_to_string(filename)?,
+        "a=b\r\n[foo]\r\nbar=baz\r\n"
+    );
+
+
     Ok(())
 }

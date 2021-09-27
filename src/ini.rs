@@ -21,6 +21,7 @@ pub struct Ini {
     comment_symbols: Vec<char>,
     delimiters: Vec<char>,
     case_sensitive: bool,
+    line_endings: IniLineEndings,
 }
 
 ///The `IniDefault` struct serves as a template to create other `Ini` objects from. It can be used to store and load
@@ -75,6 +76,37 @@ pub struct IniDefault {
     ///assert_eq!(default.case_sensitive, false);
     ///```
     pub case_sensitive: bool,
+    ///Denotes the line endings to use when writing the file.
+    ///## Example
+    ///```rust
+    ///use configparser::ini::{Ini, IniLineEndings};
+    ///
+    ///let mut config = Ini::new();
+    ///let default = config.defaults();
+    ///assert_eq!(default.line_endings, IniLineEndings::Lf);
+    ///```
+    pub line_endings: IniLineEndings,
+}
+
+///The `IniLineEndings` enum configures which line endings to use when writing the file.
+///## Example
+///```rust
+///use configparser::ini::{Ini, IniLineEndings};
+///
+///let mut config = Ini::new();
+///let default = config.defaults();
+///assert_eq!(default.line_endings, IniLineEndings::Lf);
+///```
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum IniLineEndings {
+    /// '\n'
+    Lf,
+    /// "\r\n"
+    Crlf,
+}
+
+impl Default for IniLineEndings {
+    fn default() -> Self { Self::Lf }
 }
 
 impl Ini {
@@ -94,6 +126,7 @@ impl Ini {
             comment_symbols: vec![';', '#'],
             delimiters: vec!['=', ':'],
             case_sensitive: false,
+            line_endings: IniLineEndings::Lf,
         }
     }
 
@@ -113,6 +146,7 @@ impl Ini {
             comment_symbols: vec![';', '#'],
             delimiters: vec!['=', ':'],
             case_sensitive: true,
+            line_endings: IniLineEndings::Lf,
         }
     }
 
@@ -121,12 +155,14 @@ impl Ini {
     ///```rust
     ///use configparser::ini::Ini;
     ///use configparser::ini::IniDefault;
+    ///use configparser::ini::IniLineEndings;
     ///
     ///let default = IniDefault {
     ///    default_section: "default".to_owned(),
     ///    comment_symbols: vec![';'],
     ///    delimiters: vec!['='],
     ///    case_sensitive: true,
+    ///    line_endings: IniLineEndings::Lf,
     ///};
     ///let mut config = Ini::new_from_defaults(default.clone());
     ///// Now, load as usual with new defaults:
@@ -141,6 +177,7 @@ impl Ini {
             comment_symbols: defaults.comment_symbols,
             delimiters: defaults.delimiters,
             case_sensitive: defaults.case_sensitive,
+            line_endings: defaults.line_endings,
         }
     }
 
@@ -159,6 +196,7 @@ impl Ini {
             comment_symbols: self.comment_symbols.to_owned(),
             delimiters: self.delimiters.to_owned(),
             case_sensitive: self.case_sensitive,
+            line_endings: self.line_endings.clone(),
         }
     }
 
@@ -168,6 +206,7 @@ impl Ini {
     ///```rust
     ///use configparser::ini::Ini;
     ///use configparser::ini::IniDefault;
+    ///use configparser::ini::IniLineEndings;
     ///
     ///let mut config = Ini::new();
     ///let default = IniDefault {
@@ -175,6 +214,7 @@ impl Ini {
     ///    comment_symbols: vec![';', '#'],
     ///    delimiters: vec!['=', ':'],
     ///    case_sensitive: true,
+    ///    line_endings: IniLineEndings::Lf,
     ///}; // This is equivalent to ini_cs() defaults
     ///config.load_defaults(default.clone());
     ///assert_eq!(config.defaults(), default);
@@ -185,6 +225,7 @@ impl Ini {
         self.comment_symbols = defaults.comment_symbols;
         self.delimiters = defaults.delimiters;
         self.case_sensitive = defaults.case_sensitive;
+        self.line_endings = defaults.line_endings;
     }
 
     ///Sets the default section header to the defined string (the default is `default`).
@@ -335,17 +376,23 @@ impl Ini {
 
     ///Private function that converts the currently stored configuration into a valid ini-syntax string.
     fn unparse(&self) -> String {
+        let line_ending = match self.line_endings {
+            IniLineEndings::Lf => "\n",
+            IniLineEndings::Crlf => "\r\n",
+        };
+
         // push key/value pairs in outmap to out string.
-        fn unparse_key_values(out: &mut String, outmap: &HashMap<String, Option<String>>) {
+        let unparse_key_values = |out: &mut String, outmap: &HashMap<String, Option<String>>| {
             for (key, val) in outmap.iter() {
                 out.push_str(&key);
                 if let Some(value) = val {
                     out.push('=');
                     out.push_str(&value);
                 }
-                out.push('\n');
+                out.push_str(&line_ending);
             }
-        }
+        };
+
         let mut out = String::new();
         let mut cloned = self.map.clone();
         if let Some(defaultmap) = cloned.get(&self.default_section) {
@@ -354,7 +401,7 @@ impl Ini {
         }
         for (section, secmap) in cloned.iter() {
             out.push_str(&format!("[{}]", section));
-            out.push('\n');
+            out.push_str(line_ending);
             unparse_key_values(&mut out, secmap);
         }
         out
