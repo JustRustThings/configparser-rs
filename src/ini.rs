@@ -84,7 +84,7 @@ pub struct IniDefault {
     ///
     ///let mut config = Ini::new();
     ///let default = config.defaults();
-    ///assert_eq!(default.line_endings, IniLineEndings::Lf);
+    ///assert_eq!(default.line_endings, IniLineEndings::default());
     ///```
     pub line_endings: IniLineEndings,
     ///Denotes that sections and keys must be sorted when writing the file.
@@ -106,7 +106,7 @@ pub struct IniDefault {
 ///
 ///let mut config = Ini::new();
 ///let default = config.defaults();
-///assert_eq!(default.line_endings, IniLineEndings::Lf);
+///assert_eq!(default.line_endings, IniLineEndings::default());
 ///```
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum IniLineEndings {
@@ -117,7 +117,12 @@ pub enum IniLineEndings {
 }
 
 impl Default for IniLineEndings {
-    fn default() -> Self { Self::Lf }
+    fn default() -> Self {
+        #[cfg(windows)]
+        { Self::Crlf }
+        #[cfg(not(windows))]
+        { Self::Lf }
+    }
 }
 
 impl Ini {
@@ -137,7 +142,7 @@ impl Ini {
             comment_symbols: vec![';', '#'],
             delimiters: vec!['=', ':'],
             case_sensitive: false,
-            line_endings: IniLineEndings::Lf,
+            line_endings: IniLineEndings::default(),
             sort_on_write: false,
         }
     }
@@ -158,7 +163,7 @@ impl Ini {
             comment_symbols: vec![';', '#'],
             delimiters: vec!['=', ':'],
             case_sensitive: true,
-            line_endings: IniLineEndings::Lf,
+            line_endings: IniLineEndings::default(),
             sort_on_write: false,
         }
     }
@@ -175,7 +180,7 @@ impl Ini {
     ///    comment_symbols: vec![';'],
     ///    delimiters: vec!['='],
     ///    case_sensitive: true,
-    ///    line_endings: IniLineEndings::Lf,
+    ///    line_endings: IniLineEndings::default(),
     ///    sort_on_write: false,
     ///};
     ///let mut config = Ini::new_from_defaults(default.clone());
@@ -230,7 +235,7 @@ impl Ini {
     ///    comment_symbols: vec![';', '#'],
     ///    delimiters: vec!['=', ':'],
     ///    case_sensitive: true,
-    ///    line_endings: IniLineEndings::Lf,
+    ///    line_endings: IniLineEndings::default(),
     ///    sort_on_write: false,
     ///}; // This is equivalent to ini_cs() defaults
     ///config.load_defaults(default.clone());

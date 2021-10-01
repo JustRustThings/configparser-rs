@@ -216,6 +216,9 @@ fn line_endings() -> Result<(), Box<dyn Error>> {
 
     // Test Lf line endings
     let mut config = Ini::new();
+    let mut default = config.defaults();
+    default.line_endings = IniLineEndings::Lf;
+    config.load_defaults(default);
     config.set("default", "a", Some("b".to_owned()));
     config.set("foo", "bar", Some("baz".to_owned()));
     config.write(filename)?;
@@ -254,6 +257,7 @@ fn line_endings() -> Result<(), Box<dyn Error>> {
 fn sort_on_write() -> Result<(), Box<dyn Error>> {
     let mut config = Ini::new_cs();
     let mut default = config.defaults();
+    default.line_endings = IniLineEndings::Lf;
     default.sort_on_write = true;
     config.load_defaults(default.clone());
     config.load("tests/test.ini")?;
